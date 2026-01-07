@@ -11,28 +11,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Python
+      - name: Setup Python + SSL
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
       
-      - name: Install system deps + SSL fix
+      - name: Install deps
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y ca-certificates
-          sudo update-ca-certificates
-          pip install --upgrade pip
+          pip install -r requirements.txt
       
-      - name: Install Python deps
-        run: pip install -r requirements.txt
+      - name: DEBUG - List files
+        run: ls -la
       
-      - name: Version 1 - Download ALL (first run)
+      - name: V1 - Download ALL PDFs
         if: github.event_name == 'workflow_dispatch'
         run: python scripts/download_all.py
       
-      - name: Version 2 - Monitor NEW PDFs
-        run: python scripts/monitor_new.py
+      - name: V2 - Monitor NEW PDFs + DEBUG
+        run: |
+          echo "🔍 Début monitoring..."
+          python scripts/monitor_new.py || echo "Monitoring échoué mais on continue"
+          echo "📁 Contenu data/ après scan:"
+          ls -la data/ || echo "Dossier data absent"
+          ls -la data/downloaded/ 2>/dev/null || echo "Aucun PDF téléchargé"
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      
+      - name: 📦 UPLOAD ARTIFACTS (PDFs + logs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bvc-pdfs-${{ github.run_number }}
+          path: |
+            data/downloaded/
+            data/last_scan.txt
+          retention-days: 7
+      
+      - name: 📋 Save logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-${{ github.run_number }}
+          path: |
+            ~/.cache/pip/
+            /tmp/
+          retention-days: 3

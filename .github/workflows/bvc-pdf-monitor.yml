@@ -1,8 +1,8 @@
-name: MonAgentBVCstat - PDF Monitor
+name: MonAgentBVCstat - PDF Monitor FINAL
 
 on:
   schedule:
-    - cron: "0 9 * * 1-5"
+    - cron: "0 9 * * 1-5"  # 9h UTC jours ouvrables
   workflow_dispatch:
 
 jobs:
@@ -11,36 +11,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Python + SSL
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
       
-      - name: Install deps
+      - name: Install deps + SSL
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ca-certificates
           pip install -r requirements.txt
       
-      - name: DEBUG - List files
-        run: ls -la
-      
-      - name: V1 - Download ALL PDFs
+      - name: 📥 V1 Download ALL PDFs (manuel seulement)
         if: github.event_name == 'workflow_dispatch'
         run: python scripts/download_all.py
       
-      - name: V2 - Monitor NEW PDFs + DEBUG
-        run: |
-          echo "🔍 Début monitoring..."
-          python scripts/monitor_new.py || echo "Monitoring échoué mais on continue"
-          echo "📁 Contenu data/ après scan:"
-          ls -la data/ || echo "Dossier data absent"
-          ls -la data/downloaded/ 2>/dev/null || echo "Aucun PDF téléchargé"
+      - name: 🔍 V2 Monitor NEW PDFs
+        run: python scripts/monitor_new.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       
-      - name: 📦 UPLOAD ARTIFACTS (PDFs + logs)
+      - name: 📦 Save PDFs as ARTIFACT (7 jours)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bvc-pdfs-${{ github.run_number }}
@@ -49,12 +43,8 @@ jobs:
             data/last_scan.txt
           retention-days: 7
       
-      - name: 📋 Save logs as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-logs-${{ github.run_number }}
-          path: |
-            ~/.cache/pip/
-            /tmp/
-          retention-days: 3
+      - name: 📊 Summary
+        run: |
+          echo "## 📈 Résumé MonAgentBVCstat" >> $GITHUB_STEP_SUMMARY
+          echo "- PDFs: $(find data/downloaded -name '*.pdf' | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- Last scan: $(cat data/last_scan.txt 2>/dev/null || echo 'N/A')" >> $GITHUB_STEP_SUMMARY

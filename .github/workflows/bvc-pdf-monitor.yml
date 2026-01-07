@@ -2,8 +2,8 @@ name: MonAgentBVCstat - PDF Monitor
 
 on:
   schedule:
-    - cron: "0 9 * * 1-5"  # Tous les jours ouvrables à 9h UTC
-  workflow_dispatch:  # Manuel aussi
+    - cron: "0 9 * * 1-5"
+  workflow_dispatch:
 
 jobs:
   monitor:
@@ -17,18 +17,21 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
       
-      - name: Install deps
+      - name: Install system deps + SSL fix
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates
+          sudo update-ca-certificates
+          pip install --upgrade pip
+      
+      - name: Install Python deps
         run: pip install -r requirements.txt
       
-      - name: Version 1 - Download all (first run)
-        env:
-          FIRST_RUN: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
-        run: |
-          if [ "$FIRST_RUN" = "true" ]; then
-            python scripts/download_all.py
-          fi
+      - name: Version 1 - Download ALL (first run)
+        if: github.event_name == 'workflow_dispatch'
+        run: python scripts/download_all.py
       
-      - name: Version 2 - Monitor new PDFs
+      - name: Version 2 - Monitor NEW PDFs
         run: python scripts/monitor_new.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}

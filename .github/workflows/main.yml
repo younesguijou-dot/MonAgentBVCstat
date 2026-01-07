@@ -1,5 +1,44 @@
-      - name: Test Telegram
+name: Telegram - Get Chat ID (temp)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  get-chat-id:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Telegram updates
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python test_telegram.py
+        run: |
+          set -e
+          if [ -z "$TELEGRAM_TOKEN" ]; then
+            echo "Missing TELEGRAM_TOKEN secret"
+            exit 1
+          fi
+
+          echo "Calling getUpdates..."
+          curl -s "https://api.telegram.org/bot${TELEGRAM_TOKEN}/getUpdates" > updates.json
+
+          echo "Raw JSON saved to updates.json"
+          echo "---- Extracted chat.id values ----"
+
+          python - <<'PY'
+          import json
+          data = json.load(open("updates.json", "r", encoding="utf-8"))
+          results = data.get("result", [])
+          chat_ids = []
+          for item in results:
+              msg = item.get("message") or item.get("channel_post") or {}
+              chat = msg.get("chat") or {}
+              cid = chat.get("id")
+              if cid is not None and cid not in chat_ids:
+                  chat_ids.append(cid)
+
+          if not chat_ids:
+              print("No chat.id found. Send a message to your bot, then re-run.")
+          else:
+              print("Found chat_id(s):")
+              for cid in chat_ids:
+                  print(" -", cid)
+          PY

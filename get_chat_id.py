@@ -1,6 +1,6 @@
 import requests
 
-TOKEN = "1234567890:ABCdef..."  # Colle TON token
+TOKEN = "8434216008:AAE9la2W3M2qxXn7X1aXOWZ0YIFbJcDGOVA"  # Colle TON token
 url = f"https://api.telegram.org/bot{TOKEN}/getUpdates"
 
 # 1. Envoie /start à ton bot
